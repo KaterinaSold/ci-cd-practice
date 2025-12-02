@@ -140,13 +140,13 @@ jobs:
         with:
           payload: |
             {
-              "text": "❌ Pipeline Failed",
+              "text": "Pipeline Failed",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "❌ *Pipeline Failed*\nRepository: ${{ github.repository }}\nCommit: ${{ github.sha }}\nWorkflow: ${{ github.workflow }}"
+                    "text": "*Pipeline Failed*\nRepository: ${{ github.repository }}\nCommit: ${{ github.sha }}\nWorkflow: ${{ github.workflow }}"
                   }
                 },
                 {

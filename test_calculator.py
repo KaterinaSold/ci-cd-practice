@@ -22,5 +22,9 @@ class TestFactorial(unittest.TestCase):
         with self.assertRaises(TypeError):
             factorial("5")
 
+    # Падающий тест для проверки уведомлений
+    def test_broken(self):
+        self.assertEqual(1, 2)
+
 if __name__ == "__main__":
     unittest.main()
