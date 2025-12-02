@@ -134,15 +134,55 @@ jobs:
     # Запускается всегда, даже если build упал
       
     steps:
-      - name: Slack Notification
+      - name: Check failed jobs
+        id: check
+        run: |
+          # Проверяем статусы всех jobs
+          LINT_RESULT="${{ needs.lint.result }}"
+          TEST_RESULT="${{ needs.test.result }}"
+          SECURITY_RESULT="${{ needs.security.result }}"
+          
+          echo "Lint: $LINT_RESULT"
+          echo "Test: $TEST_RESULT"
+          echo "Security: $SECURITY_RESULT"
+          
+          # Формируем список упавших jobs
+          FAILED_JOBS=""
+          if [[ "$LINT_RESULT" != "success" ]]; then FAILED_JOBS+="Lint, "; fi
+          if [[ "$TEST_RESULT" != "success" ]]; then FAILED_JOBS+="Test, "; fi
+          if [[ "$SECURITY_RESULT" != "success" ]]; then FAILED_JOBS+="Security, "; fi
+          
+          # Убираем последнюю запятую и пробел
+          FAILED_JOBS=${FAILED_JOBS%, }
+          
+          if [[ -n "$FAILED_JOBS" ]]; then
+            echo "HAS_FAILURES=true" >> $GITHUB_OUTPUT
+            echo "FAILED_JOBS=${FAILED_JOBS}" >> $GITHUB_OUTPUT
+            echo "STATUS=danger" >> $GITHUB_OUTPUT
+          else
+            echo "HAS_FAILURES=false" >> $GITHUB_OUTPUT
+            echo "STATUS=good" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Send Slack notification
+        if: steps.check.outputs.HAS_FAILURES == 'true'
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: github notifs  # или ваш канал
-          SLACK_COLOR: ${{ job.status }}  # good, warning, danger
-          SLACK_TITLE: "Pipeline ${{ job.status }}"
+          SLACK_CHANNEL: github-actions
+          SLACK_COLOR: ${{ steps.check.outputs.STATUS }}
+          SLACK_TITLE: "Pipeline Failed: ${{ steps.check.outputs.FAILED_JOBS }}"
           SLACK_MESSAGE: |
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
-          SLACK_FOOTER: "GitHub Actions"
+            *Repository*: ${{ github.repository }}
+            *Branch*: ${{ github.ref_name }}
+            *Commit*: ${{ github.sha }}
+            
+            *Failed Jobs*: ${{ steps.check.outputs.FAILED_JOBS }}
+            
+            *Job Statuses*:
+            • Lint: ${{ needs.lint.result }}
+            • Test: ${{ needs.test.result }}
+            • Security: ${{ needs.security.result }}
+            
+            *Details*: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_FOOTER: "GitHub Actions | ${{ github.workflow }}"
