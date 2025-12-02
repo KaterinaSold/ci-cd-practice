@@ -11,11 +11,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: python:3.9-slim  # Используем Docker контейнер для этой job
+    container: python:3.12-slim  # Используем Docker контейнер для этой job
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Install dependencies
         run: |
@@ -35,19 +35,19 @@ jobs:
           echo "Build successful" > build.log
       
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: build.log
 
   test:
     runs-on: ubuntu-latest
-    container: python:3.9-slim  # Отдельный контейнер для тестов
+    container: python:3.12-slim  # Отдельный контейнер для тестов
     needs: build
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Install dependencies
         run: |
@@ -63,7 +63,7 @@ jobs:
           python -m unittest test_calculator.py 2>&1 | tee test-report.txt
       
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: test-report.txt
