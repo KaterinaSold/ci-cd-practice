@@ -1,41 +1,69 @@
-# Название нашего пайплайна (будет видно в интерфейсе GitHub)
+# Название пайплайна
 name: CI Pipeline
 
-# Когда запускать пайплайн:
-# - при пуше в ветку main
-# - при создании pull request в ветку main
+# Когда запускать пайплайн
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
-# Определяем задания (jobs), которые будут выполняться
 jobs:
-  # Задание "build-and-test" - сборка и тестирование
-  build-and-test:
-    # Запускаем на последней версии Ubuntu
+  build:
     runs-on: ubuntu-latest
+    container: python:3.9-slim  # Используем Docker контейнер для этой job
     
-    # Шаги, которые будут выполнены
     steps:
-      # Шаг 1: Получаем код из репозитория
       - name: Checkout code
         uses: actions/checkout@v3
       
-      # Шаг 2: Устанавливаем Python
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'  # Можно изменить на нужную версию
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
       
-      # Шаг 3: Проверяем версию Python (опционально)
-      - name: Verify Python installation
+      - name: Verify installation
         run: |
           python --version
-          pip --version
+          python -c "import sys; print('Python path:', sys.path)"
       
-      # Шаг 4: Запускаем тесты
+      - name: Create build artifact
+        run: |
+          python -m py_compile calculator.py
+          echo "Build successful" > build.log
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: build.log
+
+  test:
+    runs-on: ubuntu-latest
+    container: python:3.9-slim  # Отдельный контейнер для тестов
+    needs: build
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+      
       - name: Run unit tests
         run: |
-          python -m unittest discover -s . -p "test_*.py"
+          echo "Running tests in Docker container..."
+          python -m unittest test_calculator.py -v
+      
+      - name: Generate test report
+        run: |
+          python -m unittest test_calculator.py 2>&1 | tee test-report.txt
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: test-report.txt
