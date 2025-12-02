@@ -27,7 +27,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: VERSION
+          python-version: ${{ env.PYTHON_VERSION }}
       
       - name: Install pylint
         run: pip install pylint
