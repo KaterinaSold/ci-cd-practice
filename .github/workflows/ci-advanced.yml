@@ -132,88 +132,17 @@ jobs:
     needs: [build, test, lint, security]
     if: always()  
     # Запускается всегда, даже если build упал
-    
-    steps:
-      - name: Check if any job failed
-        id: check-failure
-        run: |
-          # Проверяем каждый job
-          LINT_STATUS="${{ needs.lint.result }}"
-          TEST_STATUS="${{ needs.test.result }}"
-          
-          echo "Lint status: $LINT_STATUS"
-          echo "Test status: $TEST_STATUS"
-          
-          if [[ "$LINT_STATUS" != "success" || "$TEST_STATUS" != "success" ]]; then
-            echo "FAILED_JOBS=true" >> $GITHUB_OUTPUT
-            echo "MESSAGE=Pipeline has failures" >> $GITHUB_OUTPUT
-            
-            # Формируем список упавших jobs
-            FAILED_LIST=""
-            if [[ "$LINT_STATUS" != "success" ]]; then FAILED_LIST+="lint "; fi
-            if [[ "$TEST_STATUS" != "success" ]]; then FAILED_LIST+="test "; fi
-            echo "FAILED_LIST=$FAILED_LIST" >> $GITHUB_OUTPUT
-          else
-            echo "FAILED_JOBS=false" >> $GITHUB_OUTPUT
-            echo "MESSAGE= All checks passed" >> $GITHUB_OUTPUT
-          fi
       
-      - name: Send Slack notification on any failure
-        if: steps.check-failure.outputs.FAILED_JOBS == 'true'
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: |
-            {
-              "text": "Pipeline Failure",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Pipeline Failure Detected*"
-                  }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Repository*\n${{ github.repository }}"
-                    },
-                    {
-                      "type": "mrkdwn", 
-                      "text": "*Branch*\n${{ github.ref_name }}"
-                    }
-                  ]
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Failed Jobs*\n${{ steps.check-failure.outputs.FAILED_LIST }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Commit*\n\${{ github.sha }}\"
-                    }
-                  ]
-                },
-                {
-                  "type": "actions",
-                  "elements": [
-                    {
-                      "type": "button",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "View Details"
-                      },
-                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-                      "style": "danger"
-                    }
-                  ]
-                }
-              ]
-            }
+    steps:
+      - name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: github notifs  # или ваш канал
+          SLACK_COLOR: ${{ job.status }}  # good, warning, danger
+          SLACK_TITLE: "Pipeline ${{ job.status }}"
+          SLACK_MESSAGE: |
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+          SLACK_FOOTER: "GitHub Actions"
