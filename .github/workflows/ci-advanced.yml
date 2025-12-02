@@ -1,0 +1,163 @@
+# Название пайплайна
+name: CI Pipeline
+
+# Когда запускать пайплайн
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Глобальные переменные окружения
+env:
+  PYTHON_VERSION: '3.9'
+  SLACK_CHANNEL: '#github-notifications'
+
+# джобы
+jobs:
+  # линтинг
+  lint:
+    runs-on: ubuntu-latest
+    # Выполняется независимо от других
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: VERSION
+      
+      - name: Install pylint
+        run: pip install pylint
+      
+      - name: Run pylint
+        run: |
+          # Запускаем pylint для всех Python файлов
+          pylint *.py --exit-zero > pylint-report.txt
+      
+      - name: Upload lint report as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lint-report
+          path: pylint-report.txt
+# тест
+  test:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim  # Отдельный контейнер для тестов
+    # Выполняется параллельно с линтингом
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+      
+      - name: Run unit tests
+        run: |
+          echo "Running tests in Docker container..."
+          python -m unittest test_calculator.py -v
+      
+      - name: Generate test report
+        run: |
+          python -m unittest test_calculator.py 2>&1 | tee test-report.txt
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-report.txt
+
+  # 3. ПРОВЕРКА БЕЗОПАСНОСТИ
+  security:
+    runs-on: ubuntu-latest
+    needs: [lint, test]  # Запускается после линтинга и тестов
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run security check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'Calculator'
+          path: '.'
+          format: 'ALL'
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: security-scan
+          path: dependency-check-report.*
+
+  # билд
+  build:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim  # Используем Docker контейнер для этой job
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+      
+      - name: Verify installation
+        run: |
+          python --version
+          python -c "import sys; print('Python path:', sys.path)"
+      
+      - name: Create build artifact
+        run: |
+          python -m py_compile calculator.py
+          echo "Build successful" > build.log
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build.log
+
+  # уведомления
+  notifications:
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()  
+    # Запускается всегда, даже если build упал
+    
+    steps:
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "❌ Pipeline Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "❌ *Pipeline Failed*\nRepository: ${{ github.repository }}\nCommit: ${{ github.sha }}\nWorkflow: ${{ github.workflow }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "View details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        timeout-minutes: 2
