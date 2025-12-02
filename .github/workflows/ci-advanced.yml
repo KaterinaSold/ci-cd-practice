@@ -38,7 +38,7 @@ jobs:
           pylint *.py --exit-zero > pylint-report.txt
       
       - name: Upload lint report as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lint-report
           path: pylint-report.txt
