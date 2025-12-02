@@ -1,0 +1,41 @@
+# Название нашего пайплайна (будет видно в интерфейсе GitHub)
+name: CI Pipeline
+
+# Когда запускать пайплайн:
+# - при пуше в ветку main
+# - при создании pull request в ветку main
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Определяем задания (jobs), которые будут выполняться
+jobs:
+  # Задание "build-and-test" - сборка и тестирование
+  build-and-test:
+    # Запускаем на последней версии Ubuntu
+    runs-on: ubuntu-latest
+    
+    # Шаги, которые будут выполнены
+    steps:
+      # Шаг 1: Получаем код из репозитория
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      # Шаг 2: Устанавливаем Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'  # Можно изменить на нужную версию
+      
+      # Шаг 3: Проверяем версию Python (опционально)
+      - name: Verify Python installation
+        run: |
+          python --version
+          pip --version
+      
+      # Шаг 4: Запускаем тесты
+      - name: Run unit tests
+        run: |
+          python -m unittest discover -s . -p "test_*.py"
